@@ -2840,6 +2840,11 @@ class KernelWriter(metaclass=abc.ABCMeta):
     kl.append(self.comment3("Allocate Resources"))
     kl.append(self.allocateResources(kernel))
 
+    # Timestamp after resource allocation 
+
+    if kernel["SetTimeStamp"] & 8 != 0:  # timestamping 
+      kl.append(self.setStartTimeStamp(kernel))  
+
     if self.enable["PreLoop"]:
       ####################################
       # Local Read Addresses
@@ -2997,6 +3002,10 @@ class KernelWriter(metaclass=abc.ABCMeta):
       kl.append(self.openLoop(kernel, self.unrollIdx, noLabelGen=True))
       self.loopBody( kernel, tensorParametersA, tensorParametersB, kl, pack, 0, loopCopies, False, firstIter=True )
 
+    # Timestamp before unrolled loop 
+    if kernel["SetTimeStamp"] & 4 != 0:  # timestamping 
+      kl.append(self.setStartTimeStamp(kernel))  
+
     # open unrolled summation loop
     kl.append(self.comment3("Unrolled Loop(s) - Begin"))
     # In StoreCInUnroll case, LoopCounter check code is already generated. We need only LoopBeginLabel
@@ -3013,6 +3022,14 @@ class KernelWriter(metaclass=abc.ABCMeta):
       # loop body code generation
       finalLoop = lc == loopCopies - 1
       self.loopBody( kernel, tensorParametersA, tensorParametersB, kl, pack, loopIndex, loopCopies, finalLoop )
+
+    # Timestamp: end after unrolled loop done! 
+    if kernel["SetTimeStamp"] & 4 != 0:  # timestamping 
+      kl.append(self.setStopTimeStamp(kernel))  
+
+    # Timestamp: start before NLL 
+    if kernel["SetTimeStamp"] & 0x10 != 0:  # timestamping 
+      kl.append(self.setStartTimeStamp(kernel))  
 
     kl.append(self.comment("Before NLL: Check VGPR.checkin for INT8 LW"))
 
@@ -3307,6 +3324,10 @@ class KernelWriter(metaclass=abc.ABCMeta):
 
     kl.append(self.endSummation(kernel))
     if self.enable["PostLoop"]:
+      # Timestamp: start postloop 
+      if kernel["SetTimeStamp"] & 1 != 0:  # postloop timestamping 
+        kl.append(self.setStartTimeStamp(kernel))  
+      
       if not self.doShadowInit:
         kl.append(self.globalWriteWorkGroupInit(kernel))
 

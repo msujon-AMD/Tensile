@@ -619,6 +619,12 @@ class KernelWriterAssembly(KernelWriter):
       numberOfSgpr = self.numGlobalReadOffsetsB if needFirstSgprOffset else (self.numGlobalReadOffsetsB-1)
       self.defineSgpr("ScalarGlobalReadOffsetB", numberOfSgpr)
 
+    # Timestamp profiler: E=Reserve 4 registers for time stamping.. later 4*timestamp_count
+    # TODO: number of SGPR depends on the values of SetTimeStamp
+    # As a 1st step, we are just trying one pair of timestamp at a time!   
+    if kernel["SetTimeStamp"]:  # non-zero
+        self.defineSgpr("TimeStamp", 4)
+
     # debug flag to allocate dummy / unused sgpr
     # useful when comparing code that adds new kernel arguments to see what
     # was actually changed
@@ -8987,6 +8993,152 @@ class KernelWriterAssembly(KernelWriter):
 
     return kStr
 
+  ################
+  # TimeStamp related implementation 
+  def setStartTimeStamp(self, kernel):
+    kStr = "" 
+    kStr += self.comment1("Start the time stamp")
+    kStr += inst("s_memrealtime", sgpr("TimeStamp",2), "Start time stamp" )
+    return kStr 
+  
+  def setStopTimeStamp(self, kernel):
+    kStr = "" 
+    kStr += self.comment1("Stop the time stamp")
+    kStr += inst("s_memrealtime", sgpr("TimeStamp+2",2), "Stop time stamp" )
+    kStr += inst("s_nop 31", self.endLine)
+    
+    ### NOTE: creating a label so that we can set breakpoint in rocgdb easily.. will delete it later
+    #debugLabel = "DebugTimeStamp"
+    #kStr += "label_%s:%s"%(debugLabel, self.endLine)
+    #kStr += inst("s_sub_u32", sgpr("TimeStamp+2"), sgpr("TimeStamp+2"), sgpr("TimeStamp+0"), "end-start")
+    #kStr += inst("s_subb_u32", sgpr("TimeStamp+3"), sgpr("TimeStamp+3"), sgpr("TimeStamp+1"), "end-start")
+    return kStr 
+
+  def saveTimeStampsInExD(self, kernel):
+    # Here is the main idea: 
+    # 1. Find the end of D matrix: D1 = D + N*LDD, make the address at least 16 byte align 
+    # 2. Find the wave id: 
+    #     globalWGid = wg0 + wg1 * wg0size + wg2 * wg0size * wg1size
+    #     waveid = tid / 64 
+    #     globalWaveID = globalWGid * 4 + waveid
+    # 3. Find the starting position to save timeStamp (MAX_TS_SPACE)
+    #     D_start = D1 + waveid * MAX_TS_SPACE
+    #     MAX_TS_SPACE can be calculated by ceil(max_TS*2*8/64)*64 // keeping multiple of 64 
+    # 4. Memory Store: (each TS 16 bytes, buffer_store_b128)
+    #     How to write use buffer load? 
+    #     We can inject each TS in different lane of VPRG[0:3].. need to enable/disable lanes
+    # 
+    kStr=""
+    # 1. Find the end of D matrix: D + N*LDD*BPE 
+    # sgprAddressD -> updated with +offsetD 
+    #kStr += inst("s_mov_b32", sgpr("Srd+0"), sgpr("AddressD+0"), "D+offsetD") 
+    #kStr += inst("s_mov_b32", sgpr("Srd+1"), sgpr("AddressD+1"), "D+offsetD")
+    #TODO: need to check sgprSrd+2/3, unchanged for now 
+    tmpS0 = self.getTmpSgpr(4).idx()
+    tmpS1 = tmpS0+1
+    tmpS2 = tmpS0+2
+    tmpS3 = tmpS0+3
+    addrSrcSgpr = "Address"
+    #stride = "StrideD%s" % (self.indexChars[i])
+    #kStr += self.s_mul_u64_u32(sgpr(tmpS0), sgpr(tmpS1), coord, sgpr(stride), "Scale %s by Stride"%coord)
+    # TODO: do we need to consider StrideD0J??? what if row-major
+    kStr += inst("s_mul_hi_u32", sgpr(tmpS1), sgpr("SizesFree+1"), sgpr("StrideD1J"), "DScale by LDD")
+    kStr += inst("s_mul_i32", sgpr(tmpS0), sgpr("SizesFree+1"), sgpr("StrideD1J"), "DScale by LDD")
+    kStr += inst("s_lshl_b64", sgpr(tmpS0,2), sgpr(tmpS0, 2), log2(self.bpeCexternal), "Scale by BPE")
+    kStr += inst("s_add_u32",  sgpr("SrdD+0"), sgpr("%sD+0"%addrSrcSgpr), sgpr(tmpS0), "add lo to SRD")
+    kStr += inst("s_addc_u32", sgpr("SrdD+1"), sgpr("%sD+1"%addrSrcSgpr), sgpr(tmpS1), "add hi to SRD")
+
+    # making 16 byte Aligned, NOTE: make sure we have allocated enough space  
+    kStr += inst("s_add_u32",  sgpr("SrdD+0"), sgpr("SrdD+0"), 15, "add 15 to lo")
+    kStr += inst("s_addc_u32",  sgpr("SrdD+1"), sgpr("SrdD+1"), 0, "add carry to hi")
+    kStr += inst("s_lshr_b64", sgpr("SrdD+0",2), sgpr("SrdD+0", 2), 4, " >> 4")
+    kStr += inst("s_lshl_b64", sgpr("SrdD+0",2), sgpr("SrdD+0", 2), 4, " << 4")
+
+    #2. Find global wave id
+    # globalWGid = wg0 + (wg1 * wg0size) + (wg2 * wg0size * wg1size)
+    # waveid = tid / 64 
+    # globalWaveID = globalWGid * 4 + waveid 
+    #
+    #wg0size*wg1size     
+    kStr += inst("s_mul_hi_u32", sgpr(tmpS1), sgpr("NumWorkGroups0"), sgpr("NumWorkGroups1"), "hi -> wg0size * wg1size")
+    kStr += inst("s_mul_i32", sgpr(tmpS0), sgpr("NumWorkGroups0"), sgpr("NumWorkGroups1"), "lo -> wg0size * wg1size")
+    #wg2*wg0size * wg1size
+    kStr += inst("s_mul_hi_u32", sgpr(tmpS3), sgpr(tmpS0), sgpr("WorkGroup2"), "wg2*wg0size*wg1size")
+    kStr += inst("s_mul_i32", sgpr(tmpS2), sgpr(tmpS1), sgpr("WorkGroup2"), "wg2*wg0size*wg1size")
+    kStr += inst("s_add_u32",  sgpr(tmpS3), sgpr(tmpS3), sgpr(tmpS2), " hi->wg2*wg0size*wg1size")
+    kStr += inst("s_mul_i32", sgpr(tmpS2), sgpr(tmpS0), sgpr("WorkGroup2"), "lo->wg2*wg0size*wg1size")
+    # wg1*wg0size
+    kStr += inst("s_mul_hi_u32", sgpr(tmpS1), sgpr("WorkGroup1"), sgpr("NumWorkGroups0"), "lo -> wg1 * wg0size")
+    kStr += inst("s_mul_i32", sgpr(tmpS0), sgpr("WorkGroup1"), sgpr("NumWorkGroups0"), "hi -> wg1 * wg0size")
+    #(wg1 * wg0size) + (wg2 * wg0size * wg1size) 
+    kStr += inst("s_add_u32",  sgpr(tmpS0), sgpr(tmpS0), sgpr(tmpS2), " lo ")
+    kStr += inst("s_addc_u32",  sgpr(tmpS1), sgpr(tmpS1), sgpr(tmpS3), " hi ")
+    # globalWGid = wg0 + (wg1 * wg0size) + (wg2 * wg0size * wg1size)
+    kStr += inst("s_add_u32",  sgpr(tmpS0), sgpr(tmpS0), sgpr("WorkGroup0"), " lo ")
+    kStr += inst("s_addc_u32",  sgpr(tmpS1), sgpr(tmpS1), 0, " hi ")
+
+    # waveid = tid / 64 
+    kStr += inst("v_readfirstlane_b32", sgpr(tmpS2), vgpr("Serial"), "WaveIdxWavefrontWidth")
+    kStr += inst("s_lshr_b32", sgpr(tmpS2), sgpr(tmpS2), hex(log2(self.kernel["WavefrontSize"])), "WaveId")
+    #globalWaveID = globalWGid * 4 + waveid  TODO: 4 wave?? hardcoded?
+    # NOTE: for now, we always assume 4 waves. It is okay as long as we are allocating enough space!
+    numWaves = 4 # TODO:find it from config 
+    kStr += inst("s_lshl_b64", sgpr(tmpS0,2), sgpr(tmpS0, 2), log2(numWaves), " << 2")
+    kStr += inst("s_add_u32",  sgpr(tmpS0), sgpr(tmpS0), sgpr(tmpS2), " lo ")
+    kStr += inst("s_addc_u32",  sgpr(tmpS1), sgpr(tmpS1), 0, " hi ")
+
+    # 3. Find the starting position to save timeStamp (MAX_TS_SPACE)
+    #    D_start = D1 + waveid * MAX_TS_SPACE
+    # globalwave id -> tmpS0,tmpS1
+    maxTimeStamps = 1   # TODO: calculate it from the SetTimeStamp parameter 
+    #maxTSSpace= ((maxTimeStamps * 16 + 63)//64)*64   #  16 byte each.. mult of 64 
+    maxTSSpace= 16   #  16 byte each.. mult of 64 later  
+    kStr += inst("s_mov_b32", sgpr(tmpS2), hex(maxTSSpace), "")
+    #kStr += inst("s_mul_hi_u32", sgpr(tmpS3), sgpr(tmpS0), sgpr(tmpS2), "")
+    #kStr += inst("s_mul_i32", sgpr(tmpS1), sgpr(tmpS1), sgpr(tmpS2), "")
+    #kStr += inst("s_add_u32",  sgpr(tmpS1), sgpr(tmpS1), sgpr(tmpS3), " hi ")
+    #kStr += inst("s_mul_i32", sgpr(tmpS0), sgpr(tmpS0), sgpr(tmpS2), "")
+    
+    # just for testing     
+    kStr += inst("s_lshl_b64", sgpr(tmpS0,2), sgpr(tmpS0, 2), log2(maxTSSpace), " << log(TSSpace)")
+
+
+    kStr += inst("s_add_u32",  sgpr("SrdD+0"), sgpr("SrdD+0"), sgpr(tmpS0), "")
+    kStr += inst("s_addc_u32",  sgpr("SrdD+1"), sgpr("SrdD+1"), sgpr(tmpS1), "")
+    
+    # 4. Memory Store: (each TS 16 bytes, buffer_store_b128)
+    #    opt idea: 
+    #         buffer_store --> activate only the required lanes by changing 
+    #         -- will use later to optimize  
+    #   For now: 
+    #         same same addresses in all lanes and use flat or global_store
+    #         v_mov_b32 v0, s0 
+    #         v_mov_b32 v1, s1 
+    #         float_store_dwordx4 v[0,1], v[2:3], glc 
+    #
+    tsAddr = self.vgprPool.checkOut(2)
+    tsVgpr = self.vgprPool.checkOut(4)
+    # v_mov_b64 not supported in all arch 
+    kStr += inst("v_mov_b32",  vgpr(tsAddr), sgpr("SrdD+0"), "move address to vgpr")
+    kStr += inst("v_mov_b32",  vgpr(tsAddr+1), sgpr("SrdD+1"), "move address to vgpr")
+    
+    kStr += inst("v_mov_b32",  vgpr(tsVgpr), sgpr("TimeStamp"), "move timestamp to vgpr")
+    kStr += inst("v_mov_b32",  vgpr(tsVgpr+1), sgpr("TimeStamp+1"), "move timestamp to vgpr")
+    kStr += inst("v_mov_b32",  vgpr(tsVgpr+2), sgpr("TimeStamp+2"), "move timestamp to vgpr")
+    kStr += inst("v_mov_b32",  vgpr(tsVgpr+3), sgpr("TimeStamp+3"), "move timestamp to vgpr")
+    #kStr += inst("v_mov_b64",  vgpr(tsVgpr, 2), sgpr("TimeStamp",2), "move timestamp to vgpr")
+    #kStr += inst("v_mov_b64",  vgpr(tsVgpr+2, 2), sgpr("TimeStamp+2",2), "move timestamp to vgpr")
+    
+    #TODO: need a C style static var if we want to add the label since it may be called multiple times
+    #debugLabel =self.getLabelNum("DebugTS")
+    #kStr += "label_DebugTS_%04u:%s"%(debugLabel, self.endLine)
+    
+    #kStr += self.chooseGlobalWrite(False, 16, tsVgpr, 4, vgpr(tsAddr), 0, 0, "glc") 
+    kStr += inst("_global_store_b128", vgpr(tsAddr, 2), vgpr(tsVgpr,4), "off", "TS dump store" )
+    self.vgprPool.checkIn(tsAddr) 
+    self.vgprPool.checkIn(tsVgpr) 
+    return kStr 
+
   ##############################################################################
   # Local Read: Do It A/B
   # iui = Inner Unroll Idx
@@ -12880,6 +13032,15 @@ class KernelWriterAssembly(KernelWriter):
       imod.addCode(self.persistentLoopendLongjump(kernel))
     if addLabel:
       imod.addCode(Code.Label(self.getLabelNum("KernelEnd"), "KernelEnd"))
+    
+    ### TODO: TimeStamp profiler: there can be multiple end points. Need to handle it. 
+    if kernel["SetTimeStamp"] & 0x1 != 0 \
+            or kernel["SetTimeStamp"] & 0x10:   # if postloop 
+      imod.addCode(self.setStopTimeStamp(kernel))
+
+    # save the timestamp 
+    if kernel["SetTimeStamp"]:   # if not zero
+      imod.addCode(self.saveTimeStampsInExD(kernel))
     imod.addInst("s_endpgm", "Kernel End")
     return imod
 

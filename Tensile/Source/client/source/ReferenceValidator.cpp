@@ -333,7 +333,7 @@ namespace Tensile
                     = std::max(requiredBufferSize, m_problem.c().totalAllocatedBytes());
             if(m_printTensorD)
                 requiredBufferSize
-                    = std::max(requiredBufferSize, m_problem.d().totalAllocatedBytes());
+                    = std::max(requiredBufferSize, m_problem.d().totalAllocatedBytes())*2; // Timestamp profiling hack for now 
             if(m_printTensorRef)
                 requiredBufferSize
                     = std::max(requiredBufferSize, m_problem.d().totalAllocatedBytes());
@@ -395,7 +395,8 @@ namespace Tensile
                 {
                     HIP_CHECK_EXC(hipMemcpy(m_cpuResultBuffer.get(),
                                             result.d,
-                                            m_problem.d().totalAllocatedBytes(),
+                                            //m_problem.d().totalAllocatedBytes(),
+                                            m_problem.d().totalAllocatedBytes()*2, // Timestamping profling hack for now  
                                             hipMemcpyDeviceToHost));
                     auto const* buffer = reinterpret_cast<typename ManagedInputs::DType const*>(
                         m_cpuResultBuffer.get());

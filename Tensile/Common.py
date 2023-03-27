@@ -1050,6 +1050,14 @@ validParameters = {
 
     # assume atomics always work correctly.
     "DisableAtomicFail": [False, True],
+   
+    # 0 = no timestamp 
+    # 1 = postloop 
+    # 2 = KernelArgFetch  
+    # 4 = mainloop 
+    # 8 = whole kerenl except kernel arg fetch  
+    # 16 = Before NLL 
+    "SetTimeStamp":        list(range(0,256)),         # disable pieces of the kernel, for performance isolation
 
     # alternate implementation for fp16 HPA MFMA
     "Fp16AltImpl": [False, True],
@@ -1400,6 +1408,7 @@ defaultBenchmarkCommonParameters = [
     {"1LDSBuffer":                [ 0 ] },
     {"DisableAtomicFail":         [ 0 ] },
     {"DisableKernelPieces":       [ 0 ] },
+    {"SetTimeStamp":              [ 0 ] },
     {"DepthU":                    [ -1 ] },
     {"DepthULdsDivisor":          [ 1 ] },
     {"PerformanceSyncLocation":   [ -1 ] },

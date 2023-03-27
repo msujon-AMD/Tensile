@@ -223,7 +223,12 @@ namespace Tensile
                     else
                     {
                         m_stream << name << ": " << tensor << std::endl;
-                        WriteTensor(m_stream, data, tensor, ptrVal);
+                        //WriteTensor(m_stream, data, tensor, ptrVal);
+                        // Timestamp profiler hack: debug timestamp 
+                        if (name == "D")
+                            WriteTimeStamp(m_stream, data, tensor, ptrVal);
+                        else
+                            WriteTensor(m_stream, data, tensor, ptrVal);
                     }
                 }
             }

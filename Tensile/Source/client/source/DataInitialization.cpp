@@ -371,7 +371,10 @@ namespace Tensile
                 m_aMaxElements = std::max(m_aMaxElements, problem.a().totalAllocatedElements());
                 m_bMaxElements = std::max(m_bMaxElements, problem.b().totalAllocatedElements());
                 m_cMaxElements = std::max(m_cMaxElements, problem.c().totalAllocatedElements());
-                m_dMaxElements = std::max(m_dMaxElements, problem.d().totalAllocatedElements());
+                //m_dMaxElements = std::max(m_dMaxElements, problem.d().totalAllocatedElements());
+                // Timestamp profiling hack for now: 
+                //      NOTE: must be C!=D in config for now, 2x space should be good enough for any wave count! 
+                m_dMaxElements = std::max(m_dMaxElements, problem.d().totalAllocatedElements()*2);
 
                 size_t numOfBatch = 1;
                 for(size_t i = 0; i < problem.batchIndices().size(); i++)
