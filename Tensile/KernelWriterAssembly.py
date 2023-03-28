@@ -623,7 +623,7 @@ class KernelWriterAssembly(KernelWriter):
     # TODO: number of SGPR depends on the values of SetTimeStamp
     # As a 1st step, we are just trying one pair of timestamp at a time!   
     if kernel["SetTimeStamp"]:  # non-zero
-        self.defineSgpr("TimeStamp", 4)
+        self.defineSgpr("TimeStamp", 4, 4)
 
     # debug flag to allocate dummy / unused sgpr
     # useful when comparing code that adds new kernel arguments to see what
