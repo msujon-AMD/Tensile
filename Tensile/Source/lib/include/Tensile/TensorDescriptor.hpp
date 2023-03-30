@@ -489,6 +489,8 @@ namespace Tensile
             //        Aligned 16 bytes: ((D + 15)/16)*16         
             
             
+	    uint64_t totalCycles = 0; 
+    	    double AverageCycles; 	    
             size_t M = sizes[0], N = sizes[1], ldd = stride1; 
 
             std::cout << "****** M = " << M <<" N = " <<N << " ldd = " << ldd << std::endl; 
@@ -513,10 +515,16 @@ namespace Tensile
             {
                 for (size_t i=0; i < ts; i++)
                     stream << tsPtr[i] << ", ";
-                tsPtr += ts;
+		
+		uint64_t diffCycles = tsPtr[1] - tsPtr[0];
+		stream << diffCycles;          // only print the diff of 1st pair 
+		totalCycles += diffCycles; 
+                
+		tsPtr += ts;
                 stream << std::endl;
-                //std::cout << "*** PTR = " << tsPtr;  
             }            
+	
+	    stream << std::endl << "Average Cycles = " << (totalCycles*1.0/nWaves) << std::endl;
 
             if(decorated)
             {
