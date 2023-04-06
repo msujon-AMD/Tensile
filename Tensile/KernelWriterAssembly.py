@@ -9005,7 +9005,7 @@ class KernelWriterAssembly(KernelWriter):
     kStr = "" 
     kStr += self.comment1("Stop the time stamp")
     kStr += inst("s_memrealtime", sgpr("TimeStamp+2",2), "Stop time stamp" )
-    kStr += inst("s_nop 31", self.endLine)
+    #kStr += inst("s_nop 31", self.endLine)
     
     ### NOTE: creating a label so that we can set breakpoint in rocgdb easily.. will delete it later
     #debugLabel = "DebugTimeStamp"
@@ -9121,6 +9121,9 @@ class KernelWriterAssembly(KernelWriter):
     # v_mov_b64 not supported in all arch 
     kStr += inst("v_mov_b32",  vgpr(tsAddr), sgpr("SrdD+0"), "move address to vgpr")
     kStr += inst("v_mov_b32",  vgpr(tsAddr+1), sgpr("SrdD+1"), "move address to vgpr")
+    
+    # Note: just to make sure we have the data 
+    kStr += inst("s_waitcnt lgkmcnt(0) ", self.endLine)
     
     kStr += inst("v_mov_b32",  vgpr(tsVgpr), sgpr("TimeStamp"), "move timestamp to vgpr")
     kStr += inst("v_mov_b32",  vgpr(tsVgpr+1), sgpr("TimeStamp+1"), "move timestamp to vgpr")
@@ -13035,7 +13038,7 @@ class KernelWriterAssembly(KernelWriter):
     
     ### TODO: TimeStamp profiler: there can be multiple end points. Need to handle it. 
     if kernel["SetTimeStamp"] & 0x1 \
-            or kernel["SetTimeStamp"] & 0x8: \
+            or kernel["SetTimeStamp"] & 0x8 \
             or kernel["SetTimeStamp"] & 0x10:   # if postloop, whole kernel or NLL to end  
       imod.addCode(self.setStopTimeStamp(kernel))
 
