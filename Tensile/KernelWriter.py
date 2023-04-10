@@ -2837,15 +2837,23 @@ class KernelWriter(metaclass=abc.ABCMeta):
     kl.append(self.functionSignatureSuffix(kernel))
     kl.append(self.functionBegin(kernel))
 
+    # start Timestamp before resource allocation 
+    if kernel["SetTimeStamp"] & 1 \
+      or kernel["SetTimeStamp"] & 16 :     # timestamping on arg fetch or whole function 
+      kl.append(self.setStartTimeStamp(kernel))  
+
     kl.append(self.comment3("Allocate Resources"))
     kl.append(self.allocateResources(kernel))
 
-    # Timestamp after resource allocation 
-
-    if kernel["SetTimeStamp"] & 8 != 0:  # timestamping 
-      kl.append(self.setStartTimeStamp(kernel))  
-
+    # End Timestamp after resource allocation 
+    if kernel["SetTimeStamp"] & 1:     # end timestamping on arg fetch 
+      kl.append(self.setStopTimeStamp(kernel))  
+    
     if self.enable["PreLoop"]:
+      # start timestamp before preloop 
+      if kernel["SetTimeStamp"] & 2:  # timestamping on preloop 
+        kl.append(self.setStartTimeStamp(kernel))  
+
       ####################################
       # Local Read Addresses
       ####################################
@@ -3002,7 +3010,11 @@ class KernelWriter(metaclass=abc.ABCMeta):
       kl.append(self.openLoop(kernel, self.unrollIdx, noLabelGen=True))
       self.loopBody( kernel, tensorParametersA, tensorParametersB, kl, pack, 0, loopCopies, False, firstIter=True )
 
-    # Timestamp before unrolled loop 
+    # End timestamp for preloop 
+    if kernel["SetTimeStamp"] & 2 != 0:  
+      kl.append(self.setStopTimeStamp(kernel))  
+    
+    # Start Timestamp before unrolled loop 
     if kernel["SetTimeStamp"] & 4 != 0:  # timestamping 
       kl.append(self.setStartTimeStamp(kernel))  
 
@@ -3028,7 +3040,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
       kl.append(self.setStopTimeStamp(kernel))  
 
     # Timestamp: start before NLL 
-    if kernel["SetTimeStamp"] & 0x10 != 0:  # timestamping 
+    if kernel["SetTimeStamp"] & 8 != 0:  # timestamping 
       kl.append(self.setStartTimeStamp(kernel))  
 
     kl.append(self.comment("Before NLL: Check VGPR.checkin for INT8 LW"))
@@ -3325,8 +3337,8 @@ class KernelWriter(metaclass=abc.ABCMeta):
     kl.append(self.endSummation(kernel))
     if self.enable["PostLoop"]:
       # Timestamp: start postloop 
-      if kernel["SetTimeStamp"] & 1 != 0:  # postloop timestamping 
-        kl.append(self.setStartTimeStamp(kernel))  
+      #if kernel["SetTimeStamp"] & 1 != 0:  # postloop timestamping 
+      #  kl.append(self.setStartTimeStamp(kernel))  
       
       if not self.doShadowInit:
         kl.append(self.globalWriteWorkGroupInit(kernel))

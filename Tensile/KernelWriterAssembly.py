@@ -13037,9 +13037,8 @@ class KernelWriterAssembly(KernelWriter):
       imod.addCode(Code.Label(self.getLabelNum("KernelEnd"), "KernelEnd"))
     
     ### TODO: TimeStamp profiler: there can be multiple end points. Need to handle it. 
-    if kernel["SetTimeStamp"] & 0x1 \
-            or kernel["SetTimeStamp"] & 0x8 \
-            or kernel["SetTimeStamp"] & 0x10:   # if postloop, whole kernel or NLL to end  
+    if kernel["SetTimeStamp"] & 8 \
+            or kernel["SetTimeStamp"] & 16 :     # end timestamp for NLL-to-end, whole kernel 
       imod.addCode(self.setStopTimeStamp(kernel))
 
     # save the timestamp 

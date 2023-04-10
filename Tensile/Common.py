@@ -1051,12 +1051,12 @@ validParameters = {
     # assume atomics always work correctly.
     "DisableAtomicFail": [False, True],
    
-    # 0 = no timestamp 
-    # 1 = postloop 
-    # 2 = KernelArgFetch  
-    # 4 = mainloop 
-    # 8 = whole kerenl except kernel arg fetch  
-    # 16 = Before NLL 
+    # 0= No timestamp 
+    # 1= Resource allocation (KernelArgFetch + offset calc)  
+    # 2= Preloop (after resouce allocation to the beginng of unrolled loop) 
+    # 4= Mainloop/Unrolled-loop 
+    # 8= NLL to End (Postloop)
+    # 16= Whole kernel    
     "SetTimeStamp":        list(range(0,256)),         # disable pieces of the kernel, for performance isolation
 
     # alternate implementation for fp16 HPA MFMA
