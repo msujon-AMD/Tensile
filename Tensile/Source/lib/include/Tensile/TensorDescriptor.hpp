@@ -437,7 +437,7 @@ namespace Tensile
             }
         }
     }
-   /**
+    /**
  *  @brief Writes a tensor to an output stream.
  *
  * \param stream The stream to write to
@@ -450,6 +450,8 @@ namespace Tensile
     void WriteTimeStamp(std::ostream&           stream,
                         T const*                data,
                         TensorDescriptor const& desc,
+                        size_t                  mt0,
+                        size_t                  mt1,
                         T const*                ptrValue  = nullptr,
                         bool                    decorated = true)
     {
@@ -461,15 +463,13 @@ namespace Tensile
         if(desc.dimensions() == 0)
             return;
 
-        
         if(desc.dimensions() == 1)
         {
             //WriteTensor1D(stream, data, desc, decorated);
             return;
         }
-         
 
-        // need to find out the end of the D matrix first 
+        // need to find out the end of the D matrix first
 
         auto const&         sizes = desc.sizes();
         std::vector<size_t> coord(desc.dimensions(), 0);
@@ -483,48 +483,47 @@ namespace Tensile
         for(size_t idx = 0; idx < upperDimCount; idx++)
         {
             //CoordNumbered(idx, coord.begin() + 2, coord.end(), sizes.begin() + 2, sizes.end());
-            // exmple: 3-tensor<Half>( sizes(128, 256, 1), strides(1, 128, 32768), offset(0))                               
-            // considering only the 3D tensor and offset = 0 for now 
-            //      End of D : D + N * LDD 
-            //        Aligned 16 bytes: ((D + 15)/16)*16         
-            
-            
-	    uint64_t totalCycles = 0; 
-    	    double AverageCycles; 	    
-            size_t M = sizes[0], N = sizes[1], ldd = stride1; 
+            // exmple: 3-tensor<Half>( sizes(128, 256, 1), strides(1, 128, 32768), offset(0))
+            // considering only the 3D tensor and offset = 0 for now
+            //      End of D : D + N * LDD
+            //        Aligned 16 bytes: ((D + 15)/16)*16
 
-            std::cout << "****** M = " << M <<" N = " <<N << " ldd = " << ldd << std::endl; 
+            uint64_t totalCycles = 0;
+            double   AverageCycles;
+            size_t   M = sizes[0], N = sizes[1], ldd = stride1;
 
-            size_t dEnd = N * ldd;  
+            std::cout << "****** M = " << M << " N = " << N << " ldd = " << ldd << std::endl;
+
+            size_t      dEnd     = N * ldd;
             auto const* localPtr = data + desc.index(coord);
-            uint64_t *tsPtr = (uint64_t*) (localPtr + dEnd);
-            
+            uint64_t*   tsPtr    = (uint64_t*)(localPtr + dEnd);
 
-            std::cout << "****** localPtr = " << localPtr <<  " tsPtr = " << tsPtr  << std::endl; 
-            
+            std::cout << "****** localPtr = " << localPtr << " tsPtr = " << tsPtr << std::endl;
+            std::cout << "****** macrotiles = " << mt0 << ", " << mt1 << std::endl;
+
             // how to get tiles to get nWaves
-            // hardcoded just to check 
-            size_t MT0 = 128 , MT1 = 256;  // need to pass this info???
-	    size_t GSU = 1; // always 1 since it would be copied in gsu buffer otherwise  
-            size_t nWaves =  ((M+MT0-1)/MT0) * ((N+MT1-1)/MT1) * 4 * GSU; 
-            size_t TS = 1;  // timestamp pair
-            size_t ts = 2 * TS; 
+            // hardcoded just to check
+            // size_t MT0 = 128, MT1 = 128; // need to pass this info???
+            size_t GSU    = 1; // always 1 since it would be copied in gsu buffer otherwise
+            size_t nWaves = ((M + mt0 - 1) / mt0) * ((N + mt1 - 1) / mt1) * 4 * GSU;
+            size_t TS     = 1; // timestamp pair
+            size_t ts     = 2 * TS;
 
-            std::cout << "****** nWaves = " << nWaves << std::endl; 
-            for (size_t waveId=0; waveId < nWaves; waveId++)
+            std::cout << "****** nWaves = " << nWaves << std::endl;
+            for(size_t waveId = 0; waveId < nWaves; waveId++)
             {
-                for (size_t i=0; i < ts; i++)
+                for(size_t i = 0; i < ts; i++)
                     stream << tsPtr[i] << ", ";
-		
-		uint64_t diffCycles = tsPtr[1] - tsPtr[0];
-		stream << diffCycles;          // only print the diff of 1st pair 
-		totalCycles += diffCycles; 
-                
-		tsPtr += ts;
+
+                uint64_t diffCycles = tsPtr[1] - tsPtr[0];
+                stream << diffCycles; // only print the diff of 1st pair
+                totalCycles += diffCycles;
+
+                tsPtr += ts;
                 stream << std::endl;
-            }            
-	
-	    stream << std::endl << "Average Cycles = " << (totalCycles*1.0/nWaves) << std::endl;
+            }
+
+            stream << std::endl << "Average Cycles = " << (totalCycles * 1.0 / nWaves) << std::endl;
 
             if(decorated)
             {
