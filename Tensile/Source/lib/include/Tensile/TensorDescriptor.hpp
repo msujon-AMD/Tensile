@@ -504,27 +504,37 @@ namespace Tensile
             
             // how to get tiles to get nWaves
             // hardcoded just to check 
-            size_t MT0 = 128 , MT1 = 256;  // need to pass this info???
+            //size_t MT0 = 128 , MT1 = 256;  // need to pass this info???
+            size_t MT0 = 64 , MT1 = 16;  // need to pass this info???
 	    size_t GSU = 1; // always 1 since it would be copied in gsu buffer otherwise  
-            size_t nWaves =  ((M+MT0-1)/MT0) * ((N+MT1-1)/MT1) * 4 * GSU; 
+	    int wavePerWG = 4;   // 4 usually 
             size_t TS = 1;  // timestamp pair
+            
+	    // calculate 
+	    size_t nWG =  ((M+MT0-1)/MT0) * ((N+MT1-1)/MT1) * GSU;  
+	    size_t nWaveSpace =  nWG*4; 
             size_t ts = 2 * TS; 
 
-            std::cout << "****** nWaves = " << nWaves << std::endl; 
-            for (size_t waveId=0; waveId < nWaves; waveId++)
+            std::cout << "****** nWaves = " << nWG*wavePerWG << std::endl; 
+            for (size_t waveId=0; waveId < nWaveSpace; waveId+=4)
             {
-                for (size_t i=0; i < ts; i++)
-                    stream << tsPtr[i] << ", ";
+		uint64_t *tmpPtr=tsPtr; 
+		for (int wid=0; wid < wavePerWG; wid++)
+		{
+                   for (size_t i=0; i < ts; i++)
+                      stream << tmpPtr[i] << ", ";
 		
-		uint64_t diffCycles = tsPtr[1] - tsPtr[0];
-		stream << diffCycles;          // only print the diff of 1st pair 
-		totalCycles += diffCycles; 
+	  	   uint64_t diffCycles = tmpPtr[1] - tmpPtr[0];
+		   stream << diffCycles;          // only print the diff of 1st pair 
+		   totalCycles += diffCycles; 
                 
-		tsPtr += ts;
-                stream << std::endl;
+		   tmpPtr += ts;
+                   stream << std::endl;
+		 }
+		 tsPtr += 4*ts; 
             }            
 	
-	    stream << std::endl << "Average Cycles = " << (totalCycles*1.0/nWaves) << std::endl;
+	    stream << std::endl << "Average Cycles = " << (totalCycles*1.0/(nWG*wavePerWG)) << std::endl;
 
             if(decorated)
             {
