@@ -224,9 +224,9 @@ namespace Tensile
                     {
                         m_stream << name << ": " << tensor << std::endl;
                         //WriteTensor(m_stream, data, tensor, ptrVal);
-                        // Timestamp profiler hack: debug timestamp 
-                        if (name == "D")
-                            WriteTimeStamp(m_stream, data, tensor, ptrVal);
+                        // Timestamp profiler hack: debug timestamp
+                        if(name == "D")
+                            WriteTimeStamp(m_stream, data, tensor, m_mt0, m_mt1, ptrVal);
                         else
                             WriteTensor(m_stream, data, tensor, ptrVal);
                     }
@@ -302,6 +302,9 @@ namespace Tensile
             {
                 m_csvOutput.push();
                 m_rowLevel = LogLevel::Normal;
+                // timestamp hack
+                m_mt0 = solution.sizeMapping.macroTile.x;
+                m_mt1 = solution.sizeMapping.macroTile.y;
             }
 
             virtual void postSolution() override
@@ -327,6 +330,9 @@ namespace Tensile
             bool m_firstRun    = true;
             bool m_inSolution  = false;
             bool m_dumpTensors = false;
+
+            size_t m_mt0;
+            size_t m_mt1;
 
             LogLevel m_rowLevel;
 
