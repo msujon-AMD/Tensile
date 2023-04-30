@@ -226,7 +226,8 @@ namespace Tensile
                         //WriteTensor(m_stream, data, tensor, ptrVal);
                         // Timestamp profiler hack: debug timestamp
                         if(name == "D")
-                            WriteTimeStamp(m_stream, data, tensor, m_mt0, m_mt1, ptrVal);
+                            WriteTimeStamp(
+                                m_stream, data, tensor, m_mt0, m_mt1, m_wg0, m_wg1, ptrVal);
                         else
                             WriteTensor(m_stream, data, tensor, ptrVal);
                     }
@@ -305,6 +306,8 @@ namespace Tensile
                 // timestamp hack
                 m_mt0 = solution.sizeMapping.macroTile.x;
                 m_mt1 = solution.sizeMapping.macroTile.y;
+                m_wg0 = solution.sizeMapping.workGroupSize.x;
+                m_wg1 = solution.sizeMapping.workGroupSize.y;
             }
 
             virtual void postSolution() override
@@ -333,6 +336,8 @@ namespace Tensile
 
             size_t m_mt0;
             size_t m_mt1;
+            size_t m_wg0;
+            size_t m_wg1;
 
             LogLevel m_rowLevel;
 
