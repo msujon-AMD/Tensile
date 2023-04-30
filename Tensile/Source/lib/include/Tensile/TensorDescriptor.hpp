@@ -509,12 +509,12 @@ namespace Tensile
 
             // calculate
             size_t nWG        = ((M + mt0 - 1) / mt0) * ((N + mt1 - 1) / mt1) * GSU;
-            size_t nWaveSpace = nWG * wavePerWG;
+            size_t nWaveSpace = nWG * 4;
             size_t ts         = 2 * TS;
             std::cout << "****** nWG = " << nWG << std::endl;
             std::cout << "****** wavePerWG = " << wavePerWG << std::endl;
             std::cout << "****** nWaves = " << nWG * wavePerWG << std::endl;
-            for(size_t waveId = 0; waveId < nWaveSpace; waveId += wavePerWG)
+            for(size_t waveId = 0; waveId < nWaveSpace; waveId += 4)
             {
                 uint64_t* tmpPtr = tsPtr;
                 for(int wid = 0; wid < wavePerWG; wid++)
@@ -529,7 +529,7 @@ namespace Tensile
                     tmpPtr += ts;
                     stream << std::endl;
                 }
-                tsPtr += wavePerWG * ts;
+                tsPtr += 4 * ts;
             }
 
             stream << std::endl

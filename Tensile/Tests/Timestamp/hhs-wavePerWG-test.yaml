@@ -1,0 +1,123 @@
+GlobalParameters:
+  MinimumRequiredVersion: 4.14.0
+  # ForceRedoBenchmarkProblems: False
+  # ForceRedoLibraryLogic: False
+  # ForceRedoLibraryClient: False
+  # MergeFiles: False
+  # CMakeBuildType: Debug
+  EnqueuesPerSync: 1
+  SyncsPerBenchmark: 1
+  NumBenchmarks: 1
+  numWarmups: 0
+  KernelTime: True
+  SleepPercent: 0
+  PrintSolutionRejectionReason: True
+  PrintWinnersOnly: True
+  # ForceGenerateKernel: True
+  NumElementsToValidate: 0
+  # DataInitTypeA: 0
+  # DataInitTypeB: 0
+  # DataInitTypeC: 0
+  # DataInitTypeD: 3
+  #DataInitTypeBeta: 0
+  #DataInitTypeAlpha: 1
+  NewClient: 2
+  CSVExportWinner: 1
+  CSVMergeSameProblemID: 1
+  # CpuThreads: 1
+  # PreciseKernelTime: 0
+  # ShortNames: 1
+  # MinKForGSU: 512
+  MaxWorkspaceSize: 33554432
+  # BoundsCheck: 4
+  MaxFileName: 256
+  #CEqualD: True
+  PristineOnGPU: False
+  
+  Device : 0
+
+  PrintTensorD : 0x3 
+
+BenchmarkProblems:
+  ########################################
+  # NN - standard
+  ########################################
+  -
+    - # ProblemType
+      OperationType: GEMM
+      DataType: H
+      DestDataType: H
+      ComputeDataType: S
+      HighPrecisionAccumulate: True
+      TransposeA: False
+      TransposeB: False
+      UseBeta: True
+      Batched: True
+    - # BenchmarkProblemSizeGroup - Standard
+      InitialSolutionParameters:
+      BenchmarkCommonParameters:
+        - SetTimeStamp: [1, 2, 4, 8, 16]                 # 4 -> main loop   1+2 = 3, 4+2 = 6 
+        - KernelLanguage: ["Assembly"]
+        - EdgeType: ["ShiftPtr"]
+        - AssertFree0ElementMultiple : [4]
+        - AssertSizeLessThan : [{1: 17}]
+          #- AssertSummationElementMultiple: [512]
+          #- GlobalSplitUAlgorithm: ["MultipleBuffer"]
+          #- GlobalSplitU: [8]
+          #- GlobalSplitUWorkGroupMappingRoundRobin: [False]
+          #- GlobalSplitUSummationAssignmentRoundRobin:  [True]
+      ForkParameters:
+        - MatrixInstruction:
+            - [16, 16, 16, 1, 1, 1, 1, 2, 1]  # 32x16 	
+            - [16, 16, 16, 1, 1, 2, 1, 1, 1]  # 32x16 	
+            - [16, 16, 16, 1, 1, 1, 1, 4, 1]  # 64x16 	
+            - [16, 16, 16, 1, 1, 2, 1, 2, 1]  # 64x16 	
+        #- ThreadTile:
+        #  - [ 2, 2 ]
+        #- WorkGroup:
+        #  - [ 8, 8, 1 ]
+        #- DepthU: [16, 32,64]
+        - DepthU: [64]
+        - 1LDSBuffer: [0]
+        - LoopDoWhile: [True]
+        - ExpandPointerSwap: [0]
+        - LdsBlockSizePerPad: [-1]
+        - LdsPadA: [2]
+        - LdsPadB: [4]
+        - OptNoLoadLoop: [1]
+        - PrefetchGlobalRead: [2]
+        - PrefetchLocalRead: [1]
+        - SuppressNoLoadLoop: [0]
+        - ScheduleLocalWrite: [1]
+        - ScheduleGlobalRead: [1]
+        - ScheduleIterAlg: [3]
+        - StaggerUMapping: [0]
+        - StaggerU: [0]
+        - StaggerUStride: [0]
+        - SourceSwap: [0]
+        - TransposeLDS: [1]
+        - WorkGroupMapping: [1]
+        - VectorWidth: [4]
+        - GlobalReadVectorWidth: [2] 
+        - StoreVectorWidth: [4]
+        - WaveSeparateGlobalReadA: [0]
+        - WaveSeparateGlobalReadB: [0]
+        - StoreSyncOpt: [0]
+        - StorePriorityOpt: [1]
+        - MIArchVgpr: [1]
+        #- MIArchVgpr: [0,1]
+        - NonTemporalD: [3]
+        - LocalDotLayout: [1]
+      BenchmarkJoinParameters:
+      BenchmarkFinalParameters:
+        - ProblemSizes:
+          - Exact: [1104, 1, 1, 4608]
+          - Exact: [1104, 16, 1, 4608]
+
+ #LibraryLogic:
+ #   ScheduleName: "aldebaran"
+ #   DeviceNames: ["Device 7400", "Device 7408", "Device 740c"]
+ #   ArchitectureName: "gfx90a"
+
+    #LibraryClient:
+
