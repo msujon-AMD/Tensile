@@ -3073,6 +3073,9 @@ class KernelWriterAssembly(KernelWriter):
 
       load = self.numSgprToLoad
       sgprStart = self.sgprs["Tensor2dSizeA"]
+      # start timestamp
+      if kernel["SetTimeStamp"] & 32:
+        kStr += self.setStartTimeStamp(kernel)
       while load > 0:
         if load >= 16:
           load -= 16
@@ -3111,6 +3114,9 @@ class KernelWriterAssembly(KernelWriter):
       if kernel.enabledSetPrioSplitLDS:
         kStr += inst("s_setprio", "1", "prioritize init code so as to issue load sooner")
       kStr += inst("s_waitcnt", "lgkmcnt(0)", "wait for %u bytes of kern args" % self.kernArgOffset )
+      # stop timestamp
+      if kernel["SetTimeStamp"] & 32:
+        kStr += self.setStopTimeStamp(kernel)
 
       if not kernel["ProblemType"]["StridedBatched"]:
         tmpSgpr = self.getTmpSgpr(self.laneSGPRCount).idx()

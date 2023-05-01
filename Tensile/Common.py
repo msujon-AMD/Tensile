@@ -1056,7 +1056,8 @@ validParameters = {
     # 2= Preloop (after resouce allocation to the beginng of unrolled loop) 
     # 4= Mainloop/Unrolled-loop 
     # 8= NLL to End (Postloop)
-    # 16= Whole kernel    
+    # 16= Whole kernel
+    # 32= Kernel argument fetch only
     "SetTimeStamp":        list(range(0,256)),         # disable pieces of the kernel, for performance isolation
 
     # alternate implementation for fp16 HPA MFMA
