@@ -1346,7 +1346,7 @@ namespace Tensile
                 }
             };
 
-            struct Experimental : public Predicate_CRTP<Experimental, ContractionProblem>
+            struct ExperimentalGrid : public Predicate_CRTP<ExperimentalGrid, ContractionProblem>
             {
                 enum
                 {
@@ -1354,16 +1354,37 @@ namespace Tensile
                     HasValue = false
                 };
 
-                Experimental() = default;
+                ExperimentalGrid() = default;
 
                 static std::string Type()
                 {
-                    return "Experimental";
+                    return "ExperimentalGrid";
                 }
 
                 virtual bool operator()(ContractionProblem const& problem) const override
                 {
-                    return (problem.performanceMetric() == PerformanceMetric::Experimental);
+                    return (problem.performanceMetric() == PerformanceMetric::ExperimentalGrid);
+                }
+            };
+
+            struct ExperimentalDTree : public Predicate_CRTP<ExperimentalDTree, ContractionProblem>
+            {
+                enum
+                {
+                    HasIndex = false,
+                    HasValue = false
+                };
+
+                ExperimentalDTree() = default;
+
+                static std::string Type()
+                {
+                    return "ExperimentalDTree";
+                }
+
+                virtual bool operator()(ContractionProblem const& problem) const override
+                {
+                    return (problem.performanceMetric() == PerformanceMetric::ExperimentalDTree);
                 }
             };
 
@@ -1385,6 +1406,27 @@ namespace Tensile
                 virtual bool operator()(ContractionProblem const& problem) const override
                 {
                     return problem.fp16AltImpl();
+                }
+            };
+
+            struct Fp16AltImplRound : public Predicate_CRTP<Fp16AltImplRound, ContractionProblem>
+            {
+                enum
+                {
+                    HasIndex = false,
+                    HasValue = false
+                };
+
+                Fp16AltImplRound() = default;
+
+                static std::string Type()
+                {
+                    return "Fp16AltImplRound";
+                }
+
+                virtual bool operator()(ContractionProblem const& problem) const override
+                {
+                    return problem.fp16AltImplRound();
                 }
             };
 

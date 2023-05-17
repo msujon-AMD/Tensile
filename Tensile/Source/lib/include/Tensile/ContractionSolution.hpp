@@ -244,6 +244,8 @@ namespace Tensile
 
         bool canSolve(Problem const& problem, Hardware const& hardware) const;
 
+        bool matchesProblemType(Problem const& problem, Hardware const& hardware) const;
+
         struct SizeMapping
         {
             dim3 workGroupSize;
@@ -262,8 +264,7 @@ namespace Tensile
             int    persistentKernel           = 0;
             bool   persistentKernelAlongBatch = false;
 
-            bool sourceKernel = false;
-
+            bool   sourceKernel          = false;
             int    globalAccumulation    = 0;
             size_t workspaceSizePerElemC = 0;
         };
@@ -281,6 +282,7 @@ namespace Tensile
             bool        useInitialStridesCD     = false;
             bool        stridedBatched          = true;
             bool        fp16AltImpl             = false;
+            bool        fp16AltImplRound        = false;
         };
 
         struct LinearModel

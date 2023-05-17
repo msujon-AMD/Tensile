@@ -593,8 +593,24 @@ namespace Tensile
 
         PerformanceMetric performanceMetric() const
         {
-            const bool experimental = Debug::Instance().useExperimentalSelection();
-            return experimental ? PerformanceMetric::Experimental : m_performanceMetric;
+            int  experimental = Debug::Instance().useExperimentalSelection();
+            auto option       = static_cast<ExperimentalOption>(experimental);
+
+            switch(option)
+            {
+            case ExperimentalOption::None:
+                return m_performanceMetric;
+
+            case ExperimentalOption::Grid:
+                return PerformanceMetric::ExperimentalGrid;
+
+            case ExperimentalOption::DTree:
+                return PerformanceMetric::ExperimentalDTree;
+
+            default:
+                // warning?
+                return m_performanceMetric;
+            }
         }
 
         void setDeterministicMode(bool value)
@@ -614,6 +630,16 @@ namespace Tensile
         bool fp16AltImpl() const
         {
             return m_fp16AltImpl;
+        }
+
+        void setFp16AltImplRound(bool value)
+        {
+            m_fp16AltImplRound = value;
+        }
+
+        bool fp16AltImplRound() const
+        {
+            return m_fp16AltImplRound;
         }
 
         /// Largest of the free and bound indices.  Does not include batch size.
@@ -797,6 +823,7 @@ namespace Tensile
         bool              m_deterministicMode       = false;
         bool              m_eligibleForPK           = true;
         bool              m_fp16AltImpl             = false;
+        bool              m_fp16AltImplRound        = false;
         ArithmeticUnit    m_arithmeticUnit          = ArithmeticUnit::Any;
         KernelLanguage    m_kernelLanguage          = KernelLanguage::Any;
         PerformanceMetric m_performanceMetric       = PerformanceMetric::DeviceEfficiency;
