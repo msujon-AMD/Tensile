@@ -6360,7 +6360,8 @@ class KernelWriterAssembly(KernelWriter):
       if regTag != lastRegTag:
         lastRegTag = regTag
         if self.sgprPool.pool[i].status == RegisterPool.Status.InUse:
-          kStr += self.undefineSgpr(regTag)
+          if regTag != "TimeStamp":
+            kStr += self.undefineSgpr(regTag)
 
     if self.db["InitVgpr"] & 0x2:
       #kStr += self.vgprPool.initTmps(self.initVgprValue)
