@@ -1886,13 +1886,13 @@ class KernelWriter(metaclass=abc.ABCMeta):
             kl.append(self.setStartTimeStamp(kernel))
           kl.append(str(self.globalReadDo(kernel, 0, tensorParameters1st, 0)))
           tmpStr = str(self.directToLdsM0Update(kernel, 0, tensorParameters2nd, usePlaceHolder=isPap))
+          tmpStr = tmpStr.replace("__placeholder__", str(0))
+          kl.append(tmpStr)
+          kl.append(str(self.globalReadDo(kernel, 0, tensorParameters2nd, 0)))
           if kernel["SetTimeStamp"] & 512:     # end timestamping after Global Prefetch
             # NOTE: we may not have any waitcnt for DTV or DTL.. so, forcing the wait here
             kl.append(self.setWaitTimeStamp(kernel))
             kl.append(self.setStopTimeStamp(kernel))
-          tmpStr = tmpStr.replace("__placeholder__", str(0))
-          kl.append(tmpStr)
-          kl.append(str(self.globalReadDo(kernel, 0, tensorParameters2nd, 0)))
         if self.enable["GlobalReadInc"]:
           kl.append(self.globalReadIncrementAB(kernel, self.unrollIdx, pfi))
 
