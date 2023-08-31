@@ -1839,15 +1839,31 @@ class KernelWriter(metaclass=abc.ABCMeta):
           tensorParameters2nd = tensorParametersB
           if self.isSwapGlobalReadOrderForDirectToVgpr(kernel):
             tensorParameters1st, tensorParameters2nd = tensorParameters2nd, tensorParameters1st
+          ## timestamp
+          # start Timestamp before GlobalPrefetch
+          if kernel["SetTimeStamp"] & 512:
+            kl.append(self.setStartTimeStamp(kernel))
           self.dtlsM0UpdateACode = self.directToLdsM0Update(kernel, 0, tensorParameters1st, usePlaceHolder=isPap)
           self.globalReadACode = self.globalReadDo(kernel, 0, tensorParameters1st, 0)
           self.dtlsM0UpdateBCode = self.directToLdsM0Update(kernel, 0, tensorParameters2nd, usePlaceHolder=isPap)
           self.globalReadBCode = self.globalReadDo(kernel, 0, tensorParameters2nd, 0)
+          if kernel["SetTimeStamp"] & 512:     # end timestamping after Global Prefetch
+            # NOTE: we may not have any waitcnt for DTV or DTL.. so, forcing the wait here
+            kl.append(self.setWaitTimeStamp(kernel))
+            kl.append(self.setStopTimeStamp(kernel))
         else:
+          ## timestamp
+          # start Timestamp before GlobalPrefetch
+          if kernel["SetTimeStamp"] & 512:
+            kl.append(self.setStartTimeStamp(kernel))
           self.dtlsM0UpdateACode = Code.StructuredModule()
           self.globalReadACode = Code.StructuredModule() # empty
           self.dtlsM0UpdateBCode = Code.StructuredModule()
           self.globalReadBCode = Code.StructuredModule() # empty
+          if kernel["SetTimeStamp"] & 512:     # end timestamping after Global Prefetch
+            # NOTE: we may not have any waitcnt for DTV or DTL.. so, forcing the wait here
+            kl.append(self.setWaitTimeStamp(kernel))
+            kl.append(self.setStopTimeStamp(kernel))
 
         if self.enable["GlobalReadInc"]:
           self.globalReadIncrements = self.globalReadIncrementAB(kernel, self.unrollIdx, pfi)
@@ -1866,8 +1882,14 @@ class KernelWriter(metaclass=abc.ABCMeta):
           tmpStr = str(self.directToLdsM0Update(kernel, 0, tensorParameters1st, usePlaceHolder=isPap))
           tmpStr = tmpStr.replace("__placeholder__", str(0))
           kl.append(tmpStr)
+          if kernel["SetTimeStamp"] & 512:
+            kl.append(self.setStartTimeStamp(kernel))
           kl.append(str(self.globalReadDo(kernel, 0, tensorParameters1st, 0)))
           tmpStr = str(self.directToLdsM0Update(kernel, 0, tensorParameters2nd, usePlaceHolder=isPap))
+          if kernel["SetTimeStamp"] & 512:     # end timestamping after Global Prefetch
+            # NOTE: we may not have any waitcnt for DTV or DTL.. so, forcing the wait here
+            kl.append(self.setWaitTimeStamp(kernel))
+            kl.append(self.setStopTimeStamp(kernel))
           tmpStr = tmpStr.replace("__placeholder__", str(0))
           kl.append(tmpStr)
           kl.append(str(self.globalReadDo(kernel, 0, tensorParameters2nd, 0)))
@@ -3054,7 +3076,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
       kl.append(self.setStopTimeStamp(kernel))  
     
     # Start Timestamp before unrolled loop 
-    if kernel["SetTimeStamp"] & 4 != 0:  # timestamping 
+    if kernel["SetTimeStamp"] & 4 != 0:  # timestamping
       kl.append(self.setStartTimeStamp(kernel))  
 
     # open unrolled summation loop
@@ -3079,7 +3101,8 @@ class KernelWriter(metaclass=abc.ABCMeta):
       kl.append(self.setStopTimeStamp(kernel))  
 
     # Timestamp: start before NLL 
-    if kernel["SetTimeStamp"] & 8 != 0:  # timestamping 
+    if kernel["SetTimeStamp"] & 8 != 0\
+      or kernel["SetTimeStamp"] & 64:  # timestamping
       kl.append(self.setStartTimeStamp(kernel))  
 
     kl.append(self.comment("Before NLL: Check VGPR.checkin for INT8 LW"))
@@ -3174,10 +3197,21 @@ class KernelWriter(metaclass=abc.ABCMeta):
               self.vgprPool.checkIn(item.tempVgpr)
               item.tempVgpr = None
 
+    ## NOTE: adding stop timestamp for NLL, it should cover all three NLL: NGLL, OptNLL and ORDNLL
+    ## TODO: check if we have branch from NLL to tailLoop.. if may be problemetic then
+    if kernel["SetTimeStamp"] & 64 != 0:  # timestamping
+      kl.append(self.setStopTimeStamp(kernel))
+
+
     if self.staggerU and self.actualSummationLoops>1:
       kl.append(self.comment("remove stagger offsets"))
       kl.append(self.removeStagger(kernel, tensorParametersA))
       kl.append(self.removeStagger(kernel, tensorParametersB))
+
+    # Timestamp: start before tailLoop
+    # TODO: check if we have branch to tailLoop.. it won't work then
+    if kernel["SetTimeStamp"] & 256 != 0:
+      kl.append(self.setStartTimeStamp(kernel))
 
     if not self.noTailLoop:
       ########################################
@@ -3368,6 +3402,9 @@ class KernelWriter(metaclass=abc.ABCMeta):
       # tail: close
       self.inTailLoop = False
 
+    ## stop timestamp for tailloop
+    if kernel["SetTimeStamp"] & 256 != 0:  # timestamping
+      kl.append(self.setStopTimeStamp(kernel))
     # extra summation loops: global increment and close
     for i in reversed(range(self.otherSummationLoops)):
       kl.append(self.comment("global read inc AB"))
@@ -3380,6 +3417,11 @@ class KernelWriter(metaclass=abc.ABCMeta):
       kl.append(str(self.closePrefetchAcrossPersistent(kernel, isOptNLL=False)))
 
     kl.append(self.endSummation(kernel))
+
+    if kernel["SetTimeStamp"] & 128 != 0:
+      kl.append(self.setStartTimeStamp(kernel))
+
+
     if self.enable["PostLoop"]:
       # Timestamp: start postloop 
       #if kernel["SetTimeStamp"] & 1 != 0:  # postloop timestamping 

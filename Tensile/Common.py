@@ -1093,7 +1093,11 @@ validParameters = {
     # 8= NLL to End (Postloop)
     # 16= Whole kernel
     # 32= Kernel argument fetch only
-    "SetTimeStamp":        list(range(0,256)),         # disable pieces of the kernel, for performance isolation
+    # 64= NoLoadLoop (NLL)
+    # 128= storecode (without NLL and tailloop)
+    # 256= tailLoop
+    # 512= GlobalPrefetchAB before loop
+    "SetTimeStamp":        list(range(0,1024)),         # disable pieces of the kernel, for performance isolation
 
     # alternate implementation for fp16 HPA MFMA
     "Fp16AltImpl": [False, True],

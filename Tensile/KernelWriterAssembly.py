@@ -9195,7 +9195,12 @@ class KernelWriterAssembly(KernelWriter):
     return kStr
 
   ################
-  # TimeStamp related implementation 
+  # TimeStamp related implementation
+  def setWaitTimeStamp(self, kernel):
+    kStr = inst("s_waitcnt lgkmcnt(0)", " force wait for timestamp" )
+    return kStr
+
+
   def setStartTimeStamp(self, kernel):
     kStr = "" 
     kStr += self.comment1("Start the time stamp")
@@ -13474,7 +13479,8 @@ class KernelWriterAssembly(KernelWriter):
     
     ### TODO: TimeStamp profiler: there can be multiple end points. Need to handle it. 
     if kernel["SetTimeStamp"] & 8 \
-            or kernel["SetTimeStamp"] & 16 :     # end timestamp for NLL-to-end, whole kernel 
+            or kernel["SetTimeStamp"] & 16 \
+            or kernel["SetTimeStamp"] & 128:     # end timestamp for NLL-to-end, store code and whole kernel
       imod.addCode(self.setStopTimeStamp(kernel))
 
     # save the timestamp 
