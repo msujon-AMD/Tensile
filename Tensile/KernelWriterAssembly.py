@@ -9211,6 +9211,7 @@ class KernelWriterAssembly(KernelWriter):
     kStr = "" 
     kStr += self.comment1("Stop the time stamp")
     kStr += inst("s_memrealtime", sgpr("TimeStamp+2",2), "Stop time stamp" )
+    kStr += inst("s_waitcnt lgkmcnt(0)", self.endLine)
     #kStr += inst("s_nop 31", self.endLine)
     
     ### NOTE: creating a label so that we can set breakpoint in rocgdb easily.. will delete it later
