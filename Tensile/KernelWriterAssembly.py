@@ -791,7 +791,7 @@ class KernelWriterAssembly(KernelWriter):
     # init code optimization setting
     # generate local read/write address code before wait for kernel arg load
     # enable only for Asm
-    self.isInitCodeOptLR = True
+    self.isInitCodeOptLR = True and kernel["SetTimeStamp"] == 0
     self.isInitCodeOptLW = self.isInitCodeOptLR
     # disable init code opt for the following conditions
     # - enabledSplitLDS and UnrollMajorLDSA or B: uReg will be overwritten (cannot move local write code before global read offset code)
@@ -3375,7 +3375,7 @@ class KernelWriterAssembly(KernelWriter):
     self.sgprAddressStrAB = "Address"
     self.releaseSgprAdressCD = False
     self.sgprAddressStrCD = "Address"
-    if (not kernel["PersistentKernel"] and not kernel["StreamK"]) and kernel["CheckDimOverflow"]<2 and kernel["ProblemType"]["OperationType"] == 'GEMM':
+    if (not kernel["PersistentKernel"] and not kernel["StreamK"]) and kernel["CheckDimOverflow"]<2 and kernel["ProblemType"]["OperationType"] == 'GEMM' and kernel["SetTimeStamp"] == 0:
       # A,B check
       if kernel["BufferLoad"]:
         self.releaseSgprAdressAB = True

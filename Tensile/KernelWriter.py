@@ -2989,25 +2989,19 @@ class KernelWriter(metaclass=abc.ABCMeta):
     kl.append(self.functionSignatureSuffix(kernel))
     kl.append(self.functionBegin(kernel))
 
+    if kernel["SetTimeStamp"]:
+      kl.append(self.comment3("Allocate Resources"))
+      kl.append(self.allocateResources(kernel))
+
     # start Timestamp before resource allocation 
     if kernel["SetTimeStamp"] & 1 \
       or kernel["SetTimeStamp"] & 16 :     # timestamping on arg fetch or whole function 
       kl.append(self.setStartTimeStamp(kernel))  
 
-    kl.append(self.comment3("Allocate Resources"))
-    kl.append(self.allocateResources(kernel))
     # init code optimization: generate local read address code before wait for kernel arg load (in allocateResources())
     klLR = []
 
-    # End Timestamp after resource allocation 
-    if kernel["SetTimeStamp"] & 1:     # end timestamping on arg fetch 
-      kl.append(self.setStopTimeStamp(kernel))  
-    
     if self.enable["PreLoop"]:
-      # start timestamp before preloop 
-      if kernel["SetTimeStamp"] & 2:  # timestamping on preloop 
-        kl.append(self.setStartTimeStamp(kernel))  
-
       ####################################
       # Local Read Addresses
       ####################################
@@ -3045,9 +3039,18 @@ class KernelWriter(metaclass=abc.ABCMeta):
         lraCode += '\n' + placeholderInitCodeOpt + '\n' 
       klLR = [] # clean up after use
 
-    kl.append(self.comment3("Allocate Resources"))
-    kl.append(self.allocateResources(kernel, lraCode))
+    if kernel["SetTimeStamp"] == 0:
+      kl.append(self.comment3("Allocate Resources"))
+      kl.append(self.allocateResources(kernel, lraCode))
     lraCode = None # clean up after use
+
+    # End Timestamp after resource allocation 
+    if kernel["SetTimeStamp"] & 1:     # end timestamping on arg fetch 
+      kl.append(self.setStopTimeStamp(kernel))  
+
+    # start timestamp before preloop 
+    if kernel["SetTimeStamp"] & 2:  # timestamping on preloop 
+      kl.append(self.setStartTimeStamp(kernel))  
 
     if not self.isInitCodeOptLR:
       # not init code optimization case
