@@ -454,6 +454,7 @@ namespace Tensile
                         size_t                  mt1,
                         size_t                  wg0,
                         size_t                  wg1,
+                        size_t                  wg2,
                         T const*                ptrValue  = nullptr,
                         bool                    decorated = true)
     {
@@ -501,7 +502,7 @@ namespace Tensile
             std::cout << "****** localPtr = " << localPtr <<  " ****** aligned tsPtr = " << tsPtr  << std::endl;
 
             size_t GSU = 1; // always 1 since it would be copied in gsu buffer otherwise
-            int wavePerWG = ceil((wg0 * wg1) / 64); // get wavefrontsize from solution if necessary
+            int wavePerWG = ceil((wg0 * wg1 * wg2) / 64); // get wavefrontsize from solution if necessary
             std::cout << "****** wavePerWG = " << wavePerWG << std::endl;
             size_t TS = 1; // timestamp pair
 
